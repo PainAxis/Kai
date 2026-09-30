@@ -170,6 +170,42 @@ class AppSettingsExportImportTest {
     }
 
     @Test
+    fun `export and import keep display names separate for the same provider`() {
+        val appSettings = createAppSettings()
+        appSettings.setConfiguredServiceInstances(
+            listOf(
+                ServiceInstance("compat1", "openai-compatible"),
+                ServiceInstance("compat2", "openai-compatible"),
+            ),
+        )
+        appSettings.setInstanceDisplayName("compat1", "本地 Ollama")
+        appSettings.setInstanceDisplayName("compat2", "Work Server")
+
+        val target = createAppSettings()
+        assertEquals(0, target.importFromJson(appSettings.exportToJson(toolIds), toolIds))
+        assertEquals("本地 Ollama", target.getInstanceDisplayName("compat1"))
+        assertEquals("Work Server", target.getInstanceDisplayName("compat2"))
+    }
+
+    @Test
+    fun `export omits blank display names and older settings import without a name`() {
+        val appSettings = createAppSettings()
+        appSettings.setConfiguredServiceInstances(
+            listOf(ServiceInstance("compat1", "openai-compatible")),
+        )
+        appSettings.setInstanceDisplayName("compat1", "   ")
+
+        val json = appSettings.exportToJson(toolIds)
+        val instanceSettings = json["instance_settings"]!!.jsonArray.single().jsonObject
+        assertFalse(instanceSettings.containsKey("display_name"))
+
+        val target = createAppSettings()
+        assertEquals(0, target.importFromJson(json, toolIds))
+        assertEquals("", target.getInstanceDisplayName("compat1"))
+        assertEquals("compat1", target.getConfiguredServiceInstances().single().instanceId)
+    }
+
+    @Test
     fun `export and import round-trips OpenAI-compatible custom model settings`() {
         val appSettings = createAppSettings()
         appSettings.setConfiguredServiceInstances(
